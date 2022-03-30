@@ -21,26 +21,30 @@ type button = PropsOf<typeof compDict.button> & {
   text?: string
 }
 
+type maybeLazy<T> = T | (() => T)
+
 export interface IJsonFormProps {
-  formProps?: PropsOf<typeof compDict.form>
-  options?: option[]
-  buttons?: (button | (() => button))[]
+  formProps?: maybeLazy<PropsOf<typeof compDict.form>>
+  options?: maybeLazy<option>[]
+  buttons?: maybeLazy<button>[]
   defaultValues?: { [k: string]: unknown }
 }
+
+const getLazyVal = <T extends Record<string, unknown>>(obj: maybeLazy<T>) =>
+  typeof obj === "function" ? obj() : obj
 
 const ButtonItem = defineComponent({
   props: {
     button: {
-      type: Object as PropType<button | (() => button)>,
+      type: Object as PropType<maybeLazy<button>>,
       default: () => ({}),
     },
   },
   setup(props, ctx) {
     return () => {
-      const button =
-        typeof props.button === "function" ? props.button() : props.button
+      if (!props.button) return null
 
-      const { text, icon, ...rest } = button
+      const { text, icon, ...rest } = getLazyVal(props.button)
       return h(compDict.button, rest, {
         default: () => text,
         icon,
@@ -53,7 +57,7 @@ const OptionItem = defineComponent({
   emits: ["update"] as string[],
   props: {
     option: {
-      type: Object as PropType<option>,
+      type: Object as PropType<maybeLazy<option>>,
     },
     value: {
       type: [Object, Array, String, Number, Boolean] as PropType<unknown>,
@@ -61,9 +65,10 @@ const OptionItem = defineComponent({
   },
   setup(props, ctx) {
     return () => {
-      const { type, name, label, itemProps, ...rest } = props.option || {
-        name: "",
-      }
+      if (!props.option) return null
+
+      const option = getLazyVal(props.option)
+      const { type, name, label, itemProps, ...rest } = option
 
       const setValue = (val: unknown) => ctx.emit("update", val)
       const children = () => {
@@ -114,6 +119,7 @@ export const JsonForm = defineComponent({
     },
   },
   setup(props, ctx) {
+    const formProps = getLazyVal(props.formProps || {})
     const state = ref(props.defaultValues || {})
     const updateState = (key: string) => (value: unknown) => {
       state.value[key] = value
@@ -125,7 +131,7 @@ export const JsonForm = defineComponent({
         {
           onFinish: () => ctx.emit("finish", { ...unref(state) }),
           model: state,
-          ...props.formProps,
+          ...formProps,
         },
         () => [
           h(
