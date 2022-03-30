@@ -1,4 +1,4 @@
-import { h, PropType, ref, defineComponent, toRaw, unref } from "vue"
+import { h, PropType, ref, defineComponent, toRaw, unref, Fragment } from "vue"
 import type { DefineComponent } from "vue"
 import { compDict } from "./dict"
 
@@ -24,9 +24,66 @@ type button = PropsOf<typeof compDict.button> & {
 export interface IJsonFormProps {
   formProps?: PropsOf<typeof compDict.form>
   options?: option[]
-  buttons?: button[]
+  buttons?: (button | (() => button))[]
   defaultValues?: { [k: string]: unknown }
 }
+
+const ButtonItem = defineComponent({
+  props: {
+    button: {
+      type: Object as PropType<button | (() => button)>,
+      default: () => ({}),
+    },
+  },
+  setup(props, ctx) {
+    return () => {
+      const button =
+        typeof props.button === "function" ? props.button() : props.button
+
+      const { text, icon, ...rest } = button
+      return h(compDict.button, rest, {
+        default: () => text,
+        icon,
+      })
+    }
+  },
+})
+
+const OptionItem = defineComponent({
+  emits: ["update"] as string[],
+  props: {
+    option: {
+      type: Object as PropType<option>,
+    },
+    value: {
+      type: [Object, Array, String, Number, Boolean] as PropType<unknown>,
+    },
+  },
+  setup(props, ctx) {
+    return () => {
+      const { type, name, label, itemProps, ...rest } = props.option || {
+        name: "",
+      }
+
+      const slots = ctx.slots["default"]
+
+      const children = () => {
+        const comp = compDict[type || "input"] || compDict.input
+        return h(comp as DefineComponent, {
+          "onUpdate:value": (val: unknown) => ctx.emit("update", val),
+          value: props.value,
+          ...rest,
+        })
+      }
+
+      return h(
+        compDict.form.Item,
+        { label: label || name, name, ...itemProps },
+        slots || children
+      )
+    }
+  },
+})
 
 export const JsonForm = defineComponent({
   emits: ["finish"],
@@ -49,8 +106,6 @@ export const JsonForm = defineComponent({
     },
   },
   setup(props, ctx) {
-    const options: option[] = props.options || []
-    const buttons = props.buttons || []
     const state = ref(props.defaultValues || {})
     const updateState = (key: string) => (value: unknown) => {
       state.value[key] = value
@@ -65,34 +120,27 @@ export const JsonForm = defineComponent({
           ...props.formProps,
         },
         () => [
-          ...options.map((option) => {
-            const { type, name, label, itemProps, ...rest } = option
-            const slots = ctx.slots[name]
-
-            const comp = () => {
-              const comp = compDict[type as compKeys] || compDict.input
-              return h(comp as DefineComponent, {
-                "onUpdate:value": updateState(name),
-                value: state.value[name],
-                ...rest,
-              })
-            }
-
-            const children = slots || comp
-            return h(
-              compDict.form.Item,
-              { label: label || name, name, ...itemProps },
-              children
+          h(
+            Fragment,
+            null,
+            props.options?.map((option) =>
+              h(
+                OptionItem,
+                {
+                  option,
+                  value: state.value[option.name],
+                  onUpdate: updateState(option.name),
+                },
+                ctx.slots[option.name]
+              )
             )
-          }),
+          ),
 
-          ...buttons.map((btn) => {
-            const { text, icon, ...rest } = btn
-            return h(compDict.button, rest, {
-              default: () => text,
-              icon,
-            })
-          }),
+          h(
+            Fragment,
+            null,
+            props.buttons?.map((button) => h(ButtonItem, { button }))
+          ),
         ]
       )
   },

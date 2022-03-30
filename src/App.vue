@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { reactive, ref } from "vue"
 import { JsonForm, IJsonFormProps } from "./components/JsonForm"
 
-const formOption: IJsonFormProps = {
-  formProps: { layout: "horizontal" },
+const loading = ref(false)
+
+const formOption: IJsonFormProps = reactive({
+  formProps: { layout: "horizontal", labelCol: { style: { width: "120px" } } },
   options: [
     {
       type: "select",
@@ -32,9 +35,27 @@ const formOption: IJsonFormProps = {
       text: "提交",
       htmlType: "submit",
       class: "submit",
+      style: { marginLeft: "120px" },
     },
+    {
+      text: "取消",
+      style: { marginLeft: "20px" },
+      onClick: () => {},
+    },
+    () => ({
+      text: "提交3",
+      loading: loading.value,
+      class: "submit",
+      style: { marginLeft: "120px" },
+      onClick: () => {
+        loading.value = true
+        setTimeout(() => {
+          loading.value = false
+        }, 2000)
+      },
+    }),
   ],
-}
+})
 
 const handleFinish = (values: unknown) => {
   console.log(values)
