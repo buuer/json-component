@@ -55,6 +55,9 @@ const formOption: IJsonFormProps = reactive({
       },
     }),
   ],
+  defaultValues: {
+    slot: 3,
+  },
 })
 
 const handleFinish = (values: unknown) => {
@@ -64,6 +67,10 @@ const handleFinish = (values: unknown) => {
 
 <template>
   <JsonForm v-bind="formOption" @finish="handleFinish">
-    <template #slot> slot </template>
+    <template #slot="{ value, setValue }">
+      <button type="button" @click="() => setValue(value + 1)">
+        {{ value }} ++
+      </button>
+    </template>
   </JsonForm>
 </template>

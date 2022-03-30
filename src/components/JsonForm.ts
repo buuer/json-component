@@ -65,21 +65,29 @@ const OptionItem = defineComponent({
         name: "",
       }
 
-      const slots = ctx.slots["default"]
-
+      const setValue = (val: unknown) => ctx.emit("update", val)
       const children = () => {
         const comp = compDict[type || "input"] || compDict.input
         return h(comp as DefineComponent, {
-          "onUpdate:value": (val: unknown) => ctx.emit("update", val),
+          "onUpdate:value": setValue,
           value: props.value,
           ...rest,
         })
       }
 
+      const defaultSlot = ctx.slots["default"]
+      const slot = defaultSlot
+        ? () =>
+            defaultSlot({
+              value: props.value,
+              setValue,
+            })
+        : null
+
       return h(
         compDict.form.Item,
         { label: label || name, name, ...itemProps },
-        slots || children
+        slot || children
       )
     }
   },
